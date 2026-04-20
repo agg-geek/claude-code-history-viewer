@@ -203,6 +203,36 @@ describe("preloadSessionFromCli", () => {
     expect(toast.error).not.toHaveBeenCalled();
   });
 
+  // Race simulation: user clicks a session while selectProject is awaiting.
+  // Exercises the post-selectProject guard added between selectProject and
+  // selectSession, not the loop-level guard.
+  it("skips selectSession when selectedSession mutates during selectProject await", async () => {
+    vi.mocked(api).mockResolvedValueOnce([session] as unknown as never);
+    const selectProject = vi.fn().mockImplementation(async () => {
+      // Simulate user picking a session while project loads.
+      mockStoreState.selectedSession = session;
+    });
+    const selectSession = vi.fn().mockResolvedValue(undefined);
+
+    const deps = makeDeps({
+      getStartupSessionHint: vi.fn().mockResolvedValue({
+        kind: "uuid",
+        value: UUID,
+      } as SessionHint),
+      projects: [project],
+      selectProject,
+      selectSession,
+    });
+
+    const result = await preloadSessionFromCli(deps);
+
+    expect(result).toEqual({ handled: true, matched: false });
+    expect(selectProject).toHaveBeenCalledWith(project);
+    // The CLI hint must not clobber the user's mid-flight manual selection.
+    expect(selectSession).not.toHaveBeenCalled();
+    expect(toast.error).not.toHaveBeenCalled();
+  });
+
   // Real race simulation: user clicks a session mid-scan. Exercises the
   // per-loop guard inside findSessionAcrossProjects, not just the final guard.
   it("aborts scan loop when selectedSession mutates mid-scan", async () => {

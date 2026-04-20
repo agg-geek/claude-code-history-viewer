@@ -79,8 +79,10 @@ async function findSessionAcrossProjects(
   uuid: string,
   projects: ClaudeProject[],
 ): Promise<{ project: ClaudeProject; session: ClaudeSession } | null> {
-  // Hoisted: excludeSidechain doesn't change during the scan, so read once.
-  // Mirror of the same pattern in GlobalSearchModal.tsx.
+  // Snapshot excludeSidechain once to keep all scan requests consistent and
+  // avoid repeated getState() calls. The setting is user-configurable, so a
+  // snapshot is intentional: we don't want a mid-scan toggle to change half
+  // the requests. Mirror of the same pattern in GlobalSearchModal.tsx.
   const { excludeSidechain } = useAppStore.getState();
 
   for (const project of projects) {
@@ -144,6 +146,12 @@ export async function preloadSessionFromCli(
     return { handled: true, matched: false };
   }
   await deps.selectProject(match.project);
+  // Re-check after the project-load await: the user may have clicked a
+  // session while selectProject was loading. Skipping this check lets the
+  // CLI hint clobber their manual choice.
+  if (useAppStore.getState().selectedSession) {
+    return { handled: true, matched: false };
+  }
   await deps.selectSession(match.session);
   return { handled: true, matched: true };
 }
