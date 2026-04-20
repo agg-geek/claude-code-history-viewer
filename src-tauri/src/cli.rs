@@ -119,6 +119,93 @@ fn is_uuid_like(value: &str) -> bool {
     value.chars().all(|c| c.is_ascii_hexdigit() || c == '-')
 }
 
+/// Extract a [`SessionHint`] from an Apple-Events-style URL delivered to the
+/// process (e.g. from Spotlight or a Finder "Open With" gesture on macOS).
+///
+/// Supported shapes:
+/// - `file:///abs/path/session.jsonl` — becomes a `Path` hint
+/// - `claude-code-history-viewer://session/<uuid>` — becomes a `Uuid` hint
+/// - `claude-code-history-viewer://session-folder/<name>` — becomes a `Folder` hint
+/// - `claude-code-history-viewer://session-title/<url-encoded-text>` — becomes a `Title` hint
+///
+/// Any malformed URL yields `None`; the caller (the `RunEvent::Opened` handler)
+/// must never panic because the Apple Events delivery runs on the UI thread.
+#[must_use]
+pub fn parse_session_hint_from_url(url: &tauri::Url) -> Option<SessionHint> {
+    match url.scheme() {
+        "file" => {
+            let path = url.to_file_path().ok()?;
+            let s = path.to_string_lossy().into_owned();
+            if s.is_empty() {
+                return None;
+            }
+            Some(SessionHint {
+                kind: SessionHintKind::Path,
+                value: s,
+            })
+        }
+        "claude-code-history-viewer" => {
+            let host = url.host_str()?;
+            let raw_path = url.path().trim_start_matches('/');
+            if raw_path.is_empty() {
+                return None;
+            }
+            let decoded = percent_decode(raw_path);
+            match host {
+                "session" => {
+                    if is_uuid_like(&decoded) {
+                        Some(SessionHint {
+                            kind: SessionHintKind::Uuid,
+                            value: decoded,
+                        })
+                    } else {
+                        None
+                    }
+                }
+                "session-folder" => Some(SessionHint {
+                    kind: SessionHintKind::Folder,
+                    value: decoded,
+                }),
+                "session-title" => Some(SessionHint {
+                    kind: SessionHintKind::Title,
+                    value: decoded,
+                }),
+                _ => None,
+            }
+        }
+        _ => None,
+    }
+}
+
+/// Minimal percent-decoder that handles `%xx` hex escapes and `+` → space.
+fn percent_decode(input: &str) -> String {
+    let mut out = String::with_capacity(input.len());
+    let bytes = input.as_bytes();
+    let mut i = 0;
+    while i < bytes.len() {
+        let b = bytes[i];
+        if b == b'+' {
+            out.push(' ');
+            i += 1;
+        } else if b == b'%' && i + 2 < bytes.len() {
+            if let (Some(hi), Some(lo)) = (
+                (bytes[i + 1] as char).to_digit(16),
+                (bytes[i + 2] as char).to_digit(16),
+            ) {
+                out.push(((hi << 4) | lo) as u8 as char);
+                i += 3;
+                continue;
+            }
+            out.push(b as char);
+            i += 1;
+        } else {
+            out.push(b as char);
+            i += 1;
+        }
+    }
+    out
+}
+
 /// Heuristic absolute-path detection that works on both Unix and Windows.
 /// Unix: starts with `/`. Windows: drive-letter prefix like `C:\` or `C:/` or UNC `\\`.
 fn looks_like_abs_path(value: &str) -> bool {
@@ -346,5 +433,75 @@ mod tests {
             "demo",
         ]);
         assert!(parse_session_hint(&args).is_none());
+    }
+
+    // ===== Phase 3 URL parsing tests (Apple Events handler) =====
+
+    fn url(input: &str) -> tauri::Url {
+        tauri::Url::parse(input).expect("valid test url")
+    }
+
+    #[test]
+    fn parses_file_url_as_path_hint() {
+        let hint =
+            parse_session_hint_from_url(&url("file:///Users/jack/.claude/projects/demo/abc.jsonl"))
+                .expect("hint");
+        assert_eq!(hint.kind, SessionHintKind::Path);
+        assert_eq!(hint.value, "/Users/jack/.claude/projects/demo/abc.jsonl");
+    }
+
+    #[test]
+    fn parses_custom_scheme_uuid_url() {
+        let hint = parse_session_hint_from_url(&url(
+            "claude-code-history-viewer://session/1265cd74-caa9-472e-b343-c4f44b5cf12c",
+        ))
+        .expect("hint");
+        assert_eq!(hint.kind, SessionHintKind::Uuid);
+        assert_eq!(hint.value, "1265cd74-caa9-472e-b343-c4f44b5cf12c");
+    }
+
+    #[test]
+    fn parses_custom_scheme_folder_url() {
+        let hint =
+            parse_session_hint_from_url(&url("claude-code-history-viewer://session-folder/demo"))
+                .expect("hint");
+        assert_eq!(hint.kind, SessionHintKind::Folder);
+        assert_eq!(hint.value, "demo");
+    }
+
+    #[test]
+    fn parses_custom_scheme_title_with_spaces() {
+        let hint = parse_session_hint_from_url(&url(
+            "claude-code-history-viewer://session-title/auth%20bug",
+        ))
+        .expect("hint");
+        assert_eq!(hint.kind, SessionHintKind::Title);
+        assert_eq!(hint.value, "auth bug");
+    }
+
+    #[test]
+    fn rejects_custom_scheme_with_bad_uuid_host() {
+        let hint =
+            parse_session_hint_from_url(&url("claude-code-history-viewer://session/not-a-uuid"));
+        assert!(hint.is_none());
+    }
+
+    #[test]
+    fn rejects_custom_scheme_with_unknown_host() {
+        let hint = parse_session_hint_from_url(&url("claude-code-history-viewer://unknown/demo"));
+        assert!(hint.is_none());
+    }
+
+    #[test]
+    fn rejects_custom_scheme_with_empty_path() {
+        let hint =
+            parse_session_hint_from_url(&url("claude-code-history-viewer://session-folder/"));
+        assert!(hint.is_none());
+    }
+
+    #[test]
+    fn rejects_unknown_scheme() {
+        let hint = parse_session_hint_from_url(&url("http://example.com/session/foo"));
+        assert!(hint.is_none());
     }
 }

@@ -20,7 +20,9 @@ import { getProviderLabel, normalizeProviderIds } from "./utils/providers";
 import {
   fetchStartupSessionHint,
   preloadSessionFromCli,
+  type SessionHint,
 } from "./lib/preloadSession";
+import { listen } from "@tauri-apps/api/event";
 
 import "./App.css";
 
@@ -122,10 +124,18 @@ function App() {
     );
   }, [activeProviders, t]);
 
-  // One-shot guard so `--session` preload fires exactly once per process,
-  // even if project loading renders multiple times.
+  // One-shot guard so the first-launch `--session` preload fires exactly once
+  // per process, even if project loading renders multiple times.
   const cliPreloadAttempted = useRef(false);
   const openSessionPicker = useAppStore((s) => s.openSessionPicker);
+
+  // Keep the latest projects list in a ref so the second-invocation event
+  // listener (which is set up once and lives for the process lifetime) can
+  // always see the current list without re-subscribing on every render.
+  const projectsRef = useRef(projects);
+  useEffect(() => {
+    projectsRef.current = projects;
+  }, [projects]);
 
   useEffect(() => {
     if (cliPreloadAttempted.current) return;
@@ -140,6 +150,42 @@ function App() {
       t: (key, fallback) => t(key, fallback ?? key),
     });
   }, [isLoadingProjects, projects, selectProject, selectSession, openSessionPicker, t]);
+
+  // Phase 3: second-invocation routing. When the user runs the CLI again
+  // (e.g. `cch --session-title "auth bug"`) while the app is already open,
+  // the Rust side intercepts it via `tauri-plugin-single-instance` (CLI
+  // re-exec) or `RunEvent::Opened` (macOS Spotlight/Dock/Finder) and emits
+  // a `cli-session-hint` event carrying the parsed hint. We resolve it
+  // through the same `preloadSessionFromCli` path so all kinds (uuid / path
+  // / folder / title) behave identically whether they came from first-launch
+  // argv or from a second invocation.
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    const subscribe = async () => {
+      try {
+        unlisten = await listen<SessionHint>("cli-session-hint", (event) => {
+          const hint = event.payload;
+          void preloadSessionFromCli({
+            getStartupSessionHint: () => Promise.resolve(hint),
+            projects: projectsRef.current,
+            selectProject,
+            selectSession,
+            openSessionPicker,
+            t: (key, fallback) => t(key, fallback ?? key),
+          });
+        });
+      } catch (error) {
+        // Listening can fail in non-Tauri environments (e.g. the webui-server
+        // build served from a browser). Second-invocation routing simply
+        // doesn't apply there.
+        console.warn("cli-session-hint listener unavailable:", error);
+      }
+    };
+    void subscribe();
+    return () => {
+      unlisten?.();
+    };
+  }, [selectProject, selectSession, openSessionPicker, t]);
 
   // Local state
   const [isViewingGlobalStats, setIsViewingGlobalStats] = useState(false);

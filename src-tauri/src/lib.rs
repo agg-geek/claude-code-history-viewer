@@ -98,6 +98,7 @@ fn run_tauri() {
     }
 
     use std::sync::{Arc, Mutex};
+    use tauri::{Emitter, Manager};
 
     // Parse CLI args for a session preload hint (e.g. `--session <uuid>`).
     // A missing or unrecognized value yields None; the GUI then runs as usual.
@@ -107,6 +108,29 @@ fn run_tauri() {
 
     #[allow(unused_mut)]
     let mut builder = tauri::Builder::default()
+        // Single-instance plugin MUST be registered first so the second
+        // invocation is intercepted before any other plugin does any work.
+        // The callback receives the second process's argv; we re-parse it
+        // for a session hint and forward to the live window. Any panic in
+        // the callback is caught so a malformed argv cannot freeze the
+        // already-running window.
+        .plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
+            let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                // Re-focus the main window regardless of hint presence so users
+                // get visible feedback that the second launch was intercepted.
+                if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.unminimize();
+                    let _ = window.set_focus();
+                }
+                if let Some(hint) = cli::parse_session_hint(&argv) {
+                    // Frontend listens on this event (see App.tsx).
+                    let _ = app.emit("cli-session-hint", hint);
+                }
+            }));
+            if result.is_err() {
+                log::error!("single_instance callback panicked; argv dropped");
+            }
+        }))
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_store::Builder::default().build())
@@ -214,7 +238,34 @@ fn run_tauri() {
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
-        .run(|_, _| {});
+        .run(|app, event| {
+            // macOS-only: Spotlight / Dock / Finder launches don't re-exec
+            // argv, so `tauri-plugin-single-instance` cannot see them. The OS
+            // instead delivers the target as an Apple Event that Tauri
+            // surfaces as `RunEvent::Opened { urls }`. We convert the first
+            // resolvable URL into a `SessionHint` and re-use the same
+            // `cli-session-hint` event the single-instance callback emits so
+            // the frontend has one unified listener.
+            #[cfg(target_os = "macos")]
+            if let tauri::RunEvent::Opened { urls } = &event {
+                for url in urls {
+                    if let Some(hint) = cli::parse_session_hint_from_url(url) {
+                        if let Some(window) = app.get_webview_window("main") {
+                            let _ = window.unminimize();
+                            let _ = window.set_focus();
+                        }
+                        let _ = app.emit("cli-session-hint", hint);
+                        break;
+                    }
+                }
+            }
+            // Prevent unused-variable warnings on non-macOS builds.
+            #[cfg(not(target_os = "macos"))]
+            {
+                let _ = app;
+                let _ = event;
+            }
+        });
 }
 
 /// Run the Axum-based `WebUI` server (headless mode).
