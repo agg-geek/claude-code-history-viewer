@@ -168,7 +168,7 @@ pub async fn scan_projects(claude_path: String) -> Result<Vec<ClaudeProject>, St
     let mut projects = Vec::new();
     let mut seen_canonical = std::collections::HashSet::new();
 
-    for entry in WalkDir::new(&projects_path)
+    let mut entries: Vec<_> = WalkDir::new(&projects_path)
         .min_depth(1)
         .max_depth(1)
         .into_iter()
@@ -179,7 +179,14 @@ pub async fn scan_projects(claude_path: String) -> Result<Vec<ClaudeProject>, St
             // so there is no risk of traversing outside the projects/ tree.
             e.file_type().is_dir() || (e.file_type().is_symlink() && e.path().is_dir())
         })
-    {
+        .collect();
+    // Prefer real directories over symlinks so canonical-path dedup picks a
+    // stable winner instead of relying on WalkDir iteration order (which varies
+    // by FS/OS and could otherwise make a project's displayed name flip across
+    // scans when an alias symlink coexists with its real target).
+    entries.sort_by_key(|e| e.file_type().is_symlink());
+
+    for entry in entries {
         // Deduplicate when a symlink and a real directory under projects/ resolve
         // to the same target. Fall back to the raw path if canonicalize fails so
         // transient I/O errors don't drop the entry.
@@ -613,6 +620,9 @@ mod tests {
         let projects = result.unwrap();
         assert_eq!(projects.len(), 1);
         assert_eq!(projects[0].session_count, 1);
+        // Real directories must win the tie over symlink aliases so the displayed
+        // project name stays stable across scans regardless of WalkDir iteration order.
+        assert_eq!(projects[0].name, "my-project");
     }
 
     #[tokio::test]
