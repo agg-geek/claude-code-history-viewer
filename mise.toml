@@ -1,6 +1,6 @@
 [tools]
 just = "latest"
-node = "latest"
+node = "22"
 pnpm = "latest"
 rust = "latest"
 

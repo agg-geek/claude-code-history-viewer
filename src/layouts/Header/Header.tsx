@@ -21,6 +21,7 @@ import { useModal } from "@/contexts/modal";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
 import { isMacOS } from "@/utils/platform";
+import { useSessionDisplayName } from "@/hooks/useSessionMetadata";
 import { SettingDropdown } from "./SettingDropdown";
 
 interface HeaderProps {
@@ -44,6 +45,10 @@ export const Header = ({ analyticsActions, analyticsComputed, updater }: HeaderP
 
   const computed = analyticsComputed;
   const isClaudeProject = (selectedProject?.provider ?? "claude") === "claude";
+  const sessionDisplayName = useSessionDisplayName(
+    selectedSession?.session_id ?? "",
+    selectedSession?.summary
+  );
 
   const handleLoadTokenStats = async () => {
     if (!selectedProject) return;
@@ -99,7 +104,7 @@ export const Header = ({ analyticsActions, analyticsComputed, updater }: HeaderP
         <div className="flex flex-col min-w-0">
           <div className="flex items-center gap-2 min-w-0">
             <h1 className="text-sm font-semibold text-foreground hidden md:block">
-              {t('common.appName')}
+              CCHV
             </h1>
             {selectedProject && (
               <>
@@ -111,14 +116,14 @@ export const Header = ({ analyticsActions, analyticsComputed, updater }: HeaderP
             )}
             {!selectedProject && (
               <h1 className="text-sm font-semibold text-foreground md:hidden">
-                {t('common.appName')}
+                CCHV
               </h1>
             )}
           </div>
           {selectedSession ? (
             <p className="text-2xs text-muted-foreground truncate max-w-[280px] md:max-w-sm">
               <span className="text-muted-foreground/60 hidden md:inline">Session:</span>{" "}
-              {selectedSession.summary ||
+              {sessionDisplayName || selectedSession.summary ||
                 `${t("session.title")} ${selectedSession.session_id.slice(-8)}`}
             </p>
           ) : (

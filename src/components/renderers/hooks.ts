@@ -35,7 +35,7 @@ export function useRendererStyles(variant: RendererVariant): VariantStyles {
 export function useExpandableContent(
   suffix: string,
   {
-    defaultExpanded = false,
+    defaultExpanded = true,
     searchQuery,
     content,
   }: {

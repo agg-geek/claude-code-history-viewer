@@ -17,7 +17,7 @@ import type { MessageViewerProps } from "./types";
 import { VirtualizedMessageRow } from "./components/VirtualizedMessageRow";
 import { FloatingDateOverlay } from "./components/FloatingDateOverlay";
 import { CaptureModeToolbar } from "./components/CaptureModeToolbar";
-import { FilterToolbar } from "./components/FilterToolbar";
+// import { FilterToolbar } from "./components/FilterToolbar";
 import { OffScreenCaptureRenderer } from "./components/OffScreenCaptureRenderer";
 import { ScreenshotPreviewModal } from "./components/ScreenshotPreviewModal";
 import { useSearchState } from "./hooks/useSearchState";
@@ -169,8 +169,23 @@ export const MessageViewer: React.FC<MessageViewerProps> = ({
     if (allRoles && allContent) return messages;
 
     return messages.filter((msg) => {
+      // Hide attachment messages when tool calls are off
+      if (msg.type === "attachment") return contentTypes.toolCalls;
+
       // Role filter
-      if (msg.type === "user") return roles.user;
+      if (msg.type === "user") {
+        if (!roles.user) return false;
+        // Filter out user messages that only contain tool_result (no visible text)
+        if (!contentTypes.toolCalls && Array.isArray(msg.content)) {
+          const hasVisibleContent = msg.content.some((item: unknown) => {
+            if (!item || typeof item !== "object") return false;
+            const typed = item as Record<string, unknown>;
+            return typed.type === "text";
+          });
+          if (!hasVisibleContent && !extractClaudeMessageContent(msg)) return false;
+        }
+        return true;
+      }
       if (msg.type === "assistant") {
         if (!roles.assistant) return false;
         // Content type filter — check if assistant message has any visible content left
@@ -672,8 +687,8 @@ export const MessageViewer: React.FC<MessageViewerProps> = ({
 
   return (
     <div className="relative flex-1 h-full flex flex-col">
-      {/* Search Toolbar - Editorial aesthetic */}
-      <div
+      {/* eslint-disable-next-line no-constant-binary-expression -- Search Toolbar hidden for cleaner UI */}
+      {null && <div
         role="search"
         className={cn(
           "flex items-center gap-2 lg:gap-3 px-3 lg:px-4 py-2 lg:py-2.5 border-b sticky top-0 z-10",
@@ -870,12 +885,9 @@ export const MessageViewer: React.FC<MessageViewerProps> = ({
             </DropdownMenu>
           </div>
         )}
-      </div>
+      </div>}
 
-      {/* Filter Toolbar */}
-      {!isCaptureMode && messages.length > 0 && (
-        <FilterToolbar totalCount={messages.length} filteredCount={displayMessages.length} />
-      )}
+      {/* Filter Toolbar - Hidden for cleaner UI */}
 
       {/* Capture Mode Toolbar */}
       {isCaptureMode && (
@@ -971,7 +983,7 @@ export const MessageViewer: React.FC<MessageViewerProps> = ({
         )}
         {/* 검색 결과 없음 */}
         {sessionSearch.query && (!sessionSearch.matches || sessionSearch.matches.length === 0) && !sessionSearch.isSearching && (
-          <div className="max-w-4xl mx-auto flex flex-col items-center justify-center py-12 text-muted-foreground">
+          <div className="max-w-[90%] mx-auto flex flex-col items-center justify-center py-12 text-muted-foreground">
             <Search className="w-12 h-12 mb-4 text-muted-foreground/50" />
             <p className="text-lg font-medium mb-2 text-foreground">
               {t("messageViewer.noSearchResults")}
@@ -984,7 +996,7 @@ export const MessageViewer: React.FC<MessageViewerProps> = ({
 
         {/* 메시지 목록 헤더 */}
         {displayMessages.length > 0 && !sessionSearch.query && (
-          <div className="max-w-4xl mx-auto flex items-center justify-center py-4">
+          <div className="max-w-[90%] mx-auto flex items-center justify-center py-4">
             <div className="text-sm text-muted-foreground">
               {t("messageViewer.allMessagesLoaded", {
                 count: messages.length,

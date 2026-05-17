@@ -164,6 +164,16 @@ export default defineConfig(async () => {
     ],
   },
 
+  server: {
+    proxy: {
+      "/api": "http://localhost:3727",
+      "/events": {
+        target: "http://localhost:3727",
+        ws: true,
+      },
+    },
+  },
+
   // Test configuration
   test: {
     environment: "jsdom",

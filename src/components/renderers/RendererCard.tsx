@@ -104,7 +104,7 @@ const CardRoot = memo(function CardRoot({
   children,
   className,
   enableToggle = true,
-  defaultExpanded = false,
+  defaultExpanded = true,
   hasError = false,
   expandKey,
 }: CardProps) {
@@ -124,7 +124,7 @@ const CardRoot = memo(function CardRoot({
     <CardContext.Provider value={contextValue}>
       <div
         className={cn(
-          "mt-1.5 border border-border overflow-hidden",
+          "mt-0.5 border border-border overflow-hidden",
           layout.rounded,
           styles.container,
           hasError && "bg-destructive/10 border-destructive/50",

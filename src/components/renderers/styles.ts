@@ -202,13 +202,13 @@ export function getVariantStyles(variant: RendererVariant): VariantStyles {
  */
 export const layout = {
   /** Container padding */
-  containerPadding: "p-2.5",
+  containerPadding: "p-1.5",
   /** Header padding (for collapsible headers) */
-  headerPadding: "px-2.5 py-1.5",
+  headerPadding: "px-1.5 py-1",
   /** Header minimum height (32px, grows when content wraps) */
   headerHeight: "min-h-8",
   /** Content padding (inside expanded content) */
-  contentPadding: "px-2.5 pb-2.5",
+  contentPadding: "px-1.5 pb-1.5",
   /** Gap between icon and text */
   iconGap: "gap-1.5",
   /** Alternative spacing using space-x */
@@ -218,13 +218,13 @@ export const layout = {
   /** Small icon size (for status indicators) */
   iconSizeSmall: "w-3 h-3",
   /** Title text style */
-  titleText: "text-[12px] font-medium",
+  titleText: "text-base font-medium",
   /** Body text style */
-  bodyText: "text-[12px]",
+  bodyText: "text-base",
   /** Small/meta text style */
-  smallText: "text-[12px]",
+  smallText: "text-sm",
   /** Monospace text */
-  monoText: "text-[12px] font-mono",
+  monoText: "text-base font-mono",
   /** Standard border radius */
   rounded: "rounded-md",
   /** Code block max height */
@@ -234,7 +234,7 @@ export const layout = {
   /** Command/code block with horizontal scroll */
   commandOverflow: "overflow-x-auto whitespace-pre-wrap break-words",
   /** Prose/markdown style */
-  prose: "prose prose-xs max-w-none dark:prose-invert prose-headings:text-foreground prose-p:text-foreground/80 prose-a:text-info prose-code:text-accent prose-code:bg-muted prose-pre:bg-muted prose-pre:text-foreground",
+  prose: "prose prose-sm max-w-none dark:prose-invert prose-headings:text-foreground prose-p:text-foreground/80 prose-a:text-info prose-code:text-accent prose-code:bg-muted prose-pre:bg-muted prose-pre:text-foreground",
 } as const;
 
 /**

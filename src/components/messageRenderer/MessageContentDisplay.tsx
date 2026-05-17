@@ -1,6 +1,8 @@
 import React, { useMemo, Children, isValidElement } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { Highlight, themes } from "prism-react-renderer";
+import "@/lib/prismLanguages";
 import { Copy, ChevronDown } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { CommandRenderer, ImageRenderer, TaskNotificationRenderer, hasTaskNotification } from "../contentRenderer";
@@ -43,7 +45,7 @@ const getTextInfo = (text: string) => {
 // Collapsible table component for markdown
 const CollapsibleTable = ({ children, ...props }: React.HTMLAttributes<HTMLTableElement>) => {
   const { t } = useTranslation();
-  const [isExpanded, setIsExpanded] = useCaptureExpandState("table", false);
+  const [isExpanded, setIsExpanded] = useCaptureExpandState("table", true);
 
   // Extract thead and tbody from children
   const childArray = Children.toArray(children);
@@ -124,7 +126,7 @@ export const MessageContentDisplay: React.FC<MessageContentDisplayProps> = ({
   currentMatchIndex = 0,
 }) => {
   const { t } = useTranslation();
-  const [isExpanded, setIsExpanded] = useCaptureExpandState("content", false);
+  const [isExpanded, setIsExpanded] = useCaptureExpandState("content", true);
 
   // Check if content needs expand (for both user and assistant)
   const textInfo = useMemo(() => {
@@ -200,8 +202,8 @@ export const MessageContentDisplay: React.FC<MessageContentDisplayProps> = ({
     const displayContent = showPreview ? textInfo.preview : content;
 
     return (
-      <div className="mb-3 flex justify-end">
-        <div className="max-w-[85%] md:max-w-md lg:max-w-lg bg-accent text-accent-foreground rounded-2xl px-4 py-3 relative group shadow-sm">
+      <div className="mt-4 mb-2">
+        <div className="w-full bg-accent text-accent-foreground rounded-lg px-3 py-2 relative group shadow-sm">
           <div className={cn(
             "whitespace-pre-wrap break-words",
             layout.bodyText
@@ -257,8 +259,8 @@ export const MessageContentDisplay: React.FC<MessageContentDisplayProps> = ({
     const displayContent = showPreview ? textInfo.preview : content;
 
     return (
-      <div className="mb-3 flex justify-start">
-        <div className="max-w-[95%] md:max-w-2xl bg-secondary text-secondary-foreground rounded-2xl px-4 py-3 relative group shadow-sm border border-border">
+      <div className="mb-0">
+        <div className="max-w-full bg-secondary text-secondary-foreground rounded-2xl px-3 py-2 relative group shadow-sm border border-border">
           {/* 검색 중일 때는 plain text로 렌더링 (성능 + 하이라이팅) */}
           {searchQuery ? (
             <div className={`whitespace-pre-wrap break-words ${layout.bodyText}`}>
@@ -283,6 +285,37 @@ export const MessageContentDisplay: React.FC<MessageContentDisplayProps> = ({
                 skipHtml
                 components={{
                   table: CollapsibleTable,
+                  pre({ children }) {
+                    return <>{children}</>;
+                  },
+                  code({ className, children, node, ...props }) {
+                    const isBlock = node?.position && node.position.start.line !== node.position.end.line;
+                    const match = /language-(\w+)/.exec(className || "");
+                    if (isBlock || match) {
+                      const codeString = String(children).replace(/\n$/, "");
+                      const lang = match?.[1] || "text";
+                      return (
+                        <Highlight theme={themes.nightOwl} code={codeString} language={lang}>
+                          {({ style, tokens, getLineProps, getTokenProps }) => (
+                            <pre style={{ ...style, margin: 0, padding: "1em", borderRadius: "0.375rem", overflow: "auto", fontSize: "0.875rem" }}>
+                              {tokens.map((line, i) => (
+                                <div key={i} {...getLineProps({ line })}>
+                                  {line.map((token, key) => (
+                                    <span key={key} {...getTokenProps({ token })} />
+                                  ))}
+                                </div>
+                              ))}
+                            </pre>
+                          )}
+                        </Highlight>
+                      );
+                    }
+                    return (
+                      <code className={cn("bg-zinc-700 text-orange-300 px-1.5 py-0.5 rounded text-[0.9em] font-mono border border-zinc-600", className)} {...props}>
+                        {children}
+                      </code>
+                    );
+                  },
                 }}
               >
                 {displayContent}

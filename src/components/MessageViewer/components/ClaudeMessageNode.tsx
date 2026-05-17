@@ -26,7 +26,7 @@ import { extractClaudeMessageContent } from "../../../utils/messageUtils";
 import { isEmptyMessage } from "../helpers/messageHelpers";
 import { isToolUseContent, isToolResultContent } from "../../../utils/typeGuards";
 import { isActionModifier } from "../../../utils/platform";
-import { MessageHeader } from "./MessageHeader";
+// import { MessageHeader } from "./MessageHeader";
 import { SummaryMessage } from "./SummaryMessage";
 import type { MessageNodeProps } from "../types";
 
@@ -186,14 +186,14 @@ export const ClaudeMessageNode = React.memo(({
           data-message-uuid={message.uuid}
           onClick={handleSelectionClick}
           className={cn(
-            "relative w-full px-2 md:px-4 py-2 transition-all duration-200",
+            "relative w-full px-2 md:px-4 py-0.5 transition-all duration-200",
             isCaptureMode && !isSelected && CAPTURE_HOVER_BG,
             selectionHighlight,
             selectionCursor
           )}
         >
           {CaptureHideButton}
-          <div className="max-w-4xl mx-auto">
+          <div className="max-w-[90%] mx-auto">
             <AgentTaskGroupRenderer tasks={agentTaskGroup} timestamp={message.timestamp} />
           </div>
         </div>
@@ -209,14 +209,14 @@ export const ClaudeMessageNode = React.memo(({
           data-message-uuid={message.uuid}
           onClick={handleSelectionClick}
           className={cn(
-            "relative w-full px-2 md:px-4 py-2 transition-all duration-200",
+            "relative w-full px-2 md:px-4 py-0.5 transition-all duration-200",
             isCaptureMode && !isSelected && CAPTURE_HOVER_BG,
             selectionHighlight,
             selectionCursor
           )}
         >
           {CaptureHideButton}
-          <div className="max-w-4xl mx-auto">
+          <div className="max-w-[90%] mx-auto">
             <AgentProgressGroupRenderer
               entries={agentProgressGroup.entries}
               agentId={agentProgressGroup.agentId}
@@ -235,14 +235,14 @@ export const ClaudeMessageNode = React.memo(({
           data-message-uuid={message.uuid}
           onClick={handleSelectionClick}
           className={cn(
-            "relative w-full px-2 md:px-4 py-2 transition-all duration-200",
+            "relative w-full px-2 md:px-4 py-0.5 transition-all duration-200",
             isCaptureMode && !isSelected && CAPTURE_HOVER_BG,
             selectionHighlight,
             selectionCursor
           )}
         >
           {CaptureHideButton}
-          <div className="max-w-4xl mx-auto">
+          <div className="max-w-[90%] mx-auto">
             <TaskOperationGroupRenderer operations={taskOperationGroup} taskRegistry={taskRegistry} />
           </div>
         </div>
@@ -261,7 +261,7 @@ export const ClaudeMessageNode = React.memo(({
           data-message-uuid={message.uuid}
           onClick={handleSelectionClick}
           className={cn(
-            "relative max-w-4xl mx-auto transition-all duration-200",
+            "relative max-w-[90%] mx-auto transition-all duration-200",
             isCaptureMode && !isSelected && CAPTURE_HOVER_BG,
             selectionHighlight,
             selectionCursor
@@ -286,14 +286,14 @@ export const ClaudeMessageNode = React.memo(({
           data-message-uuid={message.uuid}
           onClick={handleSelectionClick}
           className={cn(
-            "relative w-full px-2 md:px-4 py-2 transition-all duration-200",
+            "relative w-full px-2 md:px-4 py-0.5 transition-all duration-200",
             isCaptureMode && !isSelected && CAPTURE_HOVER_BG,
             selectionHighlight,
             selectionCursor
           )}
         >
           {CaptureHideButton}
-          <div className="max-w-4xl mx-auto">
+          <div className="max-w-[90%] mx-auto">
             <FileHistorySnapshotRenderer
               messageId={message.messageId ?? message.uuid}
               snapshot={message.snapshot}
@@ -320,7 +320,7 @@ export const ClaudeMessageNode = React.memo(({
           )}
         >
           {CaptureHideButton}
-          <div className="max-w-4xl mx-auto">
+          <div className="max-w-[90%] mx-auto">
             <ProgressRenderer
               data={message.data as ProgressData}
               toolUseID={message.toolUseID}
@@ -350,7 +350,7 @@ export const ClaudeMessageNode = React.memo(({
           )}
         >
           {CaptureHideButton}
-          <div className="max-w-4xl mx-auto">
+          <div className="max-w-[90%] mx-auto">
             <SystemMessageRenderer
               content={contentStr}
               subtype={message.subtype}
@@ -383,7 +383,7 @@ export const ClaudeMessageNode = React.memo(({
         data-message-uuid={message.uuid}
         onClick={handleSelectionClick}
         className={cn(
-          "relative w-full px-2 md:px-4 py-2 transition-all duration-200",
+          "relative w-full px-2 md:px-4 py-0.5 transition-all duration-200",
           message.isSidechain && !isInSubagent && "bg-muted",
           // Search highlight
           isCurrentMatch && "bg-highlight-current ring-2 ring-warning",
@@ -396,8 +396,7 @@ export const ClaudeMessageNode = React.memo(({
         )}
       >
         {CaptureHideButton}
-        <div className="max-w-4xl mx-auto">
-          <MessageHeader message={message} />
+        <div className="max-w-[90%] mx-auto">
 
           <div className="w-full">
             {(message.type !== "assistant" || messageFilter.contentTypes.text) && (
@@ -412,7 +411,7 @@ export const ClaudeMessageNode = React.memo(({
 
             {message.content &&
               Array.isArray(message.content) && (
-                <div className="mb-2">
+                <div className="mb-0.5">
                   <ClaudeContentArrayRenderer
                     content={message.content}
                     searchQuery={searchQuery}
